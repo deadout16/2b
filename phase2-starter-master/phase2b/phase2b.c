@@ -62,6 +62,7 @@ void P2ClockInit(void) {
 
 void P2ClockShutdown(void) {
     // stop clock driver
+    P1_DeviceAbort(USLOSS_CLOCK_DEV, 1);
 }
 
 /*
@@ -82,6 +83,9 @@ static int ClockDriver(void *arg) {
         }
         assert(rc == P1_SUCCESS);
 
+        // Lock for global list
+        rc = P1_Lock(lockId);
+        assert(rc == P1_SUCCESS);
         // wakeup any sleeping processes whose wakeup time has arrived
         temp = head->next;
         // NOTE: WAKEUP confusion?
@@ -91,6 +95,9 @@ static int ClockDriver(void *arg) {
             head->next = temp->next;
             temp = head->next;
         }
+        // Unlock
+        rc = P1_Unlock(lockId)
+        assert(rc == P1_SUCCESS);
     }
     return P1_SUCCESS;
 }
@@ -120,6 +127,9 @@ int P2_Sleep(int seconds) {
     rc = P1_CondCreate((toString(new->pid)), lockId, &new->conditionId); // NOTE: Pointer problem maybe
     assert(rc == P1_SUCCESS);
 
+    //Locks when adding to global list
+    rc = P1_Lock(lockId);
+    assert(rc == P1_SUCCESS);
     // add sleeper to list
     temp = head;
     while(temp->next != NULL || temp->next->WAKEUPwakeup <= new->WAKEUPwakeup ){ // chop Suey
@@ -127,7 +137,9 @@ int P2_Sleep(int seconds) {
     }
     new->next = temp->next
     temp->next = new;
-    
+    // Unlock
+    rc = P1_Unlock(lockId);
+    assert(rc = P1_SUCCESS);
     // wait until it's wakeup time
     rc = P1_Wait(new->conditionId);
     return P1_SUCCESS;
